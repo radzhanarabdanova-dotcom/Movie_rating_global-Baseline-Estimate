@@ -1,0 +1,139 @@
+---
+title: "Global Baseline Estimate: Requirements"
+author: "Radzhana Rabdanova"
+format: html
+editor: visual
+---
+
+## \# 1. Load the library
+
+```         
+library(tidyverse)
+library(readxl)
+```
+
+## 
+
+# 2. Load the data
+
+# 
+
+```         
+ratings_raw <- read_excel("C:\\Users\\radzh\\OneDrive\\Desktop\\data 607\\week3a\\MovieRatings.xlsx", sheet = "MovieRatings")
+```
+
+## \# 3. Transform data to "Long Format" (Tidy Data)
+
+# \# This puts all movies in one column so R can calculate means easily
+
+# 
+
+```         
+  ratings_long <- ratings_raw %>%
+  pivot_longer(cols = -Critic, names_to = "Movie", values_to = "Rating") %>%
+  filter(!is.na(Rating))
+```
+
+```         
+```
+
+# 4. Calculate the Global Mean (mu)
+
+```         
+mu <- mean(ratings_long$Rating)
+cat("Global Mean (mu):", mu, "\n")
+```
+
+## 
+
+# 5. Calculate User Bias (b_u)
+
+```         
+user_bias <- ratings_long %>%
+  group_by(Critic) %>%
+  summarise(user_avg = mean(Rating)) %>%
+  mutate(b_u = user_avg - mu)
+```
+
+## 
+
+# 6. Calculate Movie Bias (b_i)
+
+```         
+movie_bias <- ratings_long %>%
+  group_by(Movie) %>%
+  summarise(movie_avg = mean(Rating)) %>%
+  mutate(b_i = movie_avg - mu)
+```
+
+## 
+
+# 7. Implementing the Global Baseline Estimate Algorithm
+
+\# We create a grid of all possible combinations of Critics and Movies
+
+```         
+all_combinations <- expand_grid(
+Critic = unique(ratings_raw$Critic),
+Movie = setdiff(names(ratings_raw), "Critic")
+)
+```
+
+## \# \# Join biases and calculate the predicted rating
+
+## \# Formula used: mu + user_bias (b_u) + movie_bias (b_i)
+
+```         
+predictions <- all_combinations %>%
+  left_join(user_bias, by = "Critic") %>%
+  left_join(movie_bias, by = "Movie") %>%
+  mutate(predicted_rating = mu + b_u + b_i) %>%
+```
+
+## 
+
+\# Clamp the ratings so they stay within the logical 1 to 5 scale
+
+```         
+mutate(predicted_rating = pmax(1, pmin(5, predicted_rating)))
+```
+
+## 
+
+# 8. Predict the missing rating for Param for "Pitch Perfect 2"
+
+\# Formula: Baseline = mu + user_bias + movie_bias
+
+```         
+param_rec <- predictions %>% 
+  filter(Critic == "Param", Movie == "PitchPerfect2")
+
+print(paste("Predicted rating for Param on Pitch Perfect 2 is:", 
+            round(param_rec$predicted_rating, 2)))
+```
+
+## 
+
+# 9. Creating the final table by filling in the missing gaps
+
+```         
+final_results <- ratings_raw %>%
+  pivot_longer(cols = -Critic, names_to = "Movie", values_to = "Actual") %>%
+  left_join(predictions, by = c("Critic", "Movie")) %>%
+  mutate(Final_Rating = ifelse(is.na(Actual), round(predicted_rating, 2), Actual)) %>%
+  select(Critic, Movie, Final_Rating) %>%
+  pivot_wider(names_from = Movie, values_from = Final_Rating)
+```
+
+## \# View results
+
+```         
+view(final_results)
+```
+
+## 
+
+```         
+```
+
+## 
